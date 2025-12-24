@@ -4,3 +4,5 @@ djangorestframework-simplejwt
 python-dotenv
 requests
 django-cors-headers
+gunicorn
+pymupf
