@@ -2,8 +2,9 @@ services:
   - type: web
     name: lumina-ai
     env: python
-    buildCommand: cd lumina_ai && pip install -r requirements.txt && cd backend && python manage.py collectstatic --no-input && python manage.py migrate
-    startCommand: cd lumina_ai/backend && gunicorn lumina.wsgi:application
+    rootDirectory: lumina_ai
+    buildCommand: ./build.sh
+    startCommand: cd backend && gunicorn lumina.wsgi:application
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.12
