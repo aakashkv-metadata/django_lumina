@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: lumina-ai
+    env: python
+    rootDirectory: lumina_ai
+    buildCommand: ./build.sh
+    startCommand: cd backend && gunicorn lumina.wsgi:application
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.12
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: 'False'
+      - key: RENDER_EXTERNAL_HOSTNAME
+        sync: false

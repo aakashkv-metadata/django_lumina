@@ -4,3 +4,7 @@ djangorestframework-simplejwt
 python-dotenv
 requests
 django-cors-headers
+gunicorn
+whitenoise
+dj-database-url
+psycopg2-binary
