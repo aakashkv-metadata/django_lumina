@@ -1,5 +1,12 @@
 from rest_framework import serializers
-from .models import Chat, Message
+from .models import Chat, Message, ChatFile
+
+
+class ChatFileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ChatFile
+        fields = ['id', 'file', 'filename', 'extracted_text', 'uploaded_at']
+        read_only_fields = ['extracted_text', 'uploaded_at', 'filename']
 
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:

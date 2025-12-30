@@ -21,8 +21,18 @@
         </div>
 
         <div class="p-4 border-t border-gray-800 flex-none">
+            <div id="user-profile"
+                class="flex items-center gap-3 px-2 py-3 mb-2 rounded-md hover:bg-gray-800 transition cursor-pointer text-white">
+                <div class="w-8 h-8 rounded-sm bg-purple-600 flex items-center justify-center text-xs font-bold">
+                    <span id="user-initials">U</span>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p id="user-name" class="text-sm font-medium truncate">User</p>
+                </div>
+            </div>
+
             <button onclick="logout()"
-                class="flex items-center gap-2 text-gray-400 hover:text-white transition w-full px-2 py-2 rounded">
+                class="flex items-center gap-2 text-gray-400 hover:text-white transition w-full px-2 py-2 rounded text-sm">
                 <i class="fas fa-sign-out-alt"></i> Log out
             </button>
         </div>
@@ -56,16 +66,29 @@
         <div
             class="bg-gray-800 p-4 bottom-0 w-full flex-none absolute md:static border-t border-gray-700 md:border-t-0">
             <div class="max-w-3xl mx-auto relative">
-                <textarea id="chat-input" rows="1"
-                    class="w-full bg-gray-700 text-white rounded-lg pl-4 pr-12 py-3 focus:outline-none focus:ring-1 focus:ring-gray-500 resize-none overflow-hidden shadow-lg"
-                    placeholder="Message Lumina AI..."
-                    oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 200) + 'px'"
-                    onkeydown="handleEnter(event)"></textarea>
-                <button id="send-btn" onclick="sendMessage()"
-                    class="absolute right-3 bottom-3 text-gray-400 hover:text-white p-1 rounded-md transition disabled:opacity-50"
-                    disabled>
-                    <i class="fas fa-paper-plane"></i>
-                </button>
+                <!-- File Preview/List -->
+                <div id="file-preview-container" class="flex flex-wrap gap-2 mb-2 hidden px-2">
+                    <!-- File Items appended here -->
+                </div>
+
+                <div class="flex items-end bg-gray-700 rounded-lg shadow-lg relative">
+                    <input type="file" id="file-input" class="hidden" onchange="uploadFile(this)">
+                    <button class="text-gray-400 hover:text-white p-3 rounded-l-lg transition focus:outline-none"
+                        onclick="document.getElementById('file-input').click()" title="Upload File">
+                        <i class="fas fa-plus"></i>
+                    </button>
+                    <textarea id="chat-input" rows="1"
+                        class="w-full bg-transparent text-white border-0 focus:ring-0 py-3 pl-2 pr-12 focus:outline-none resize-none overflow-hidden"
+                        placeholder="Message Lumina AI..."
+                        oninput="this.style.height = ''; this.style.height = Math.min(this.scrollHeight, 200) + 'px'"
+                        onkeydown="handleEnter(event)"></textarea>
+
+                    <button id="send-btn" onclick="sendMessage()"
+                        class="absolute right-3 bottom-2 text-gray-400 hover:text-white p-1 rounded-md transition disabled:opacity-50"
+                        disabled>
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
             </div>
             <div class="text-center text-xs text-gray-500 mt-2 hidden md:block">Lumina AI can make mistakes. Verify
                 important info.</div>
@@ -86,8 +109,19 @@
     // Init
     (async () => {
         if (!LuminaAPI.getAccessToken()) window.location.href = '/login/';
-        await loadChatHistory();
+        await Promise.all([
+            loadChatHistory(),
+            loadUserInfo()
+        ]);
     })();
+
+    async function loadUserInfo() {
+        const user = await LuminaAPI.getCurrentUser();
+        if (user) {
+            document.getElementById('user-name').textContent = user.username;
+            document.getElementById('user-initials').textContent = user.username.charAt(0).toUpperCase();
+        }
+    }
 
     function toggleSidebar() {
         const sidebar = document.getElementById('sidebar');
@@ -197,18 +231,80 @@
         messagesContainer.appendChild(div);
     }
 
+    async function uploadFile(input) {
+        if (!input.files || input.files.length === 0) return;
+        const file = input.files[0];
+
+        // Ensure chat exists
+        if (!activeChatId) {
+            const chatRes = await LuminaAPI.request('/chats/', {
+                method: 'POST',
+                body: JSON.stringify({ title: 'New Chat' })
+            });
+            const chat = await chatRes.json();
+            activeChatId = chat.id;
+            loadChatHistory();
+        }
+
+        // Show uploading or preview immediately
+        const previewContainer = document.getElementById('file-preview-container');
+        previewContainer.classList.remove('hidden');
+
+        const previewId = 'file-' + Date.now();
+        const div = document.createElement('div');
+        div.id = previewId;
+        div.className = "flex items-center gap-2 bg-gray-600 px-3 py-1 rounded-full text-xs text-white animate-pulse";
+        div.innerHTML = `<i class="fas fa-spinner fa-spin"></i> ${file.name}`;
+        previewContainer.appendChild(div);
+
+        // Upload
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const res = await LuminaAPI.request(`/chats/${activeChatId}/upload_file/`, {
+                method: 'POST',
+                body: formData
+                // headers: Content-Type is auto-set by browser with FormData
+            });
+
+            if (res.ok) {
+                const data = await res.json();
+                div.classList.remove('animate-pulse');
+                div.innerHTML = `<i class="fas fa-file-alt"></i> ${data.filename} <i class="fas fa-check text-green-400 ml-1"></i>`;
+                // Add removal logic if needed, or just visual feedback
+            } else {
+                div.classList.remove('animate-pulse');
+                div.classList.add('bg-red-900');
+                div.innerHTML = `<i class="fas fa-exclamation-circle text-red-500"></i> ${file.name} (Failed)`;
+            }
+        } catch (e) {
+            console.error(e);
+            div.innerHTML = 'Error uploading';
+        }
+
+        input.value = ''; // Reset
+    }
+
+    function removeFilePreview(id) {
+        // Implementation if we wanted to allow removing before context is used.
+        // For now, simpler: user uploads -> added to context directly.
+    }
+
     function scrollToBottom() {
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
     async function sendMessage() {
         const text = chatInput.value.trim();
-        if (!text) return;
+        if (!text) return; // Allow sending if file uploaded? Let's keep text required for now.
 
         chatInput.value = '';
         chatInput.style.height = 'auto'; // Reset height
         sendBtn.disabled = true;
         welcomeView.classList.add('hidden');
+        document.getElementById('file-preview-container').innerHTML = ''; // Clear previews on send
+        document.getElementById('file-preview-container').classList.add('hidden');
 
         // Optimistic render User Msg
         appendMessage({ role: 'user', content: text });
@@ -229,15 +325,14 @@
         scrollToBottom();
 
         try {
-            // Ensure chat exists
+            // Ensure chat exists (redundant if file uploaded first, but safe)
             if (!activeChatId) {
                 const chatRes = await LuminaAPI.request('/chats/', {
                     method: 'POST',
-                    body: JSON.stringify({ title: 'New Chat' }) // Title will update on server
+                    body: JSON.stringify({ title: 'New Chat' })
                 });
                 const chat = await chatRes.json();
                 activeChatId = chat.id;
-                // Refresh list to show new chat
                 loadChatHistory();
             }
 
@@ -251,7 +346,7 @@
             if (res.ok) {
                 const msg = await res.json();
                 appendMessage(msg);
-                loadChatHistory(); // Title might update
+                loadChatHistory();
             } else {
                 appendMessage({ role: 'assistant', content: '**Error**: Failed to send message.' });
             }

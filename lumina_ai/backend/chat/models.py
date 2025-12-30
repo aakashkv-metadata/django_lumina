@@ -27,3 +27,13 @@ class Message(models.Model):
 
     def __str__(self):
         return f"{self.role} in {self.chat.title}: {self.content[:20]}..."
+
+class ChatFile(models.Model):
+    chat = models.ForeignKey(Chat, on_delete=models.CASCADE, related_name='files')
+    file = models.FileField(upload_to='chat_files/')
+    filename = models.CharField(max_length=255)
+    extracted_text = models.TextField(blank=True, null=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.filename

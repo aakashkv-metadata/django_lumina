@@ -26,6 +26,11 @@ class LuminaAPI {
             ...options.headers
         };
 
+        // If body is FormData, delete Content-Type to let browser set it with boundary
+        if (options.body instanceof FormData) {
+            delete headers['Content-Type'];
+        }
+
         if (token) {
             headers['Authorization'] = `Bearer ${token}`;
         }
@@ -42,14 +47,14 @@ class LuminaAPI {
                 try {
                     const refreshRes = await fetch(`${API_BASE}/token/refresh/`, {
                         method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({refresh: refresh})
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ refresh: refresh })
                     });
-                    
+
                     if (refreshRes.ok) {
                         const data = await refreshRes.json();
                         this.setTokens(data.access, data.refresh); // Some servers rotate refresh tokens
-                        
+
                         // Retry original request
                         headers['Authorization'] = `Bearer ${data.access}`;
                         response = await fetch(`${API_BASE}${endpoint}`, {
@@ -57,7 +62,7 @@ class LuminaAPI {
                             headers
                         });
                     } else {
-                         throw new Error('Refresh failed');
+                        throw new Error('Refresh failed');
                     }
                 } catch (e) {
                     this.logout();
@@ -82,8 +87,8 @@ class LuminaAPI {
     static async login(username, password) {
         const res = await fetch(`${API_BASE}/login/`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username, password})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
         });
         if (res.ok) {
             const data = await res.json();
@@ -96,9 +101,17 @@ class LuminaAPI {
     static async signup(username, email, password) {
         const res = await fetch(`${API_BASE}/signup/`, {
             method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({username, email, password})
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, email, password })
         });
         return res.ok;
+    }
+
+    static async getCurrentUser() {
+        const res = await this.request('/me/');
+        if (res && res.ok) {
+            return await res.json();
+        }
+        return null;
     }
 }
